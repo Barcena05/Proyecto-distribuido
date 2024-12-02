@@ -1,6 +1,7 @@
 import requests
 
-requests.get('http://127.0.0.1:5000/preprocess')
+ip_address = input('Por favor introduzca la IP del servidor:\n')
+requests.get(f'http://{ip_address}:5000/preprocess')
 
 print("Bienvenido al buscador\n")
 
@@ -16,7 +17,7 @@ while True:
         if format_entry_bool:
             file_format = input('Introduzca el formato (ej: txt, mp3, etc)\n').lower()
         
-        response = requests.get(f'http://localhost:5000/query/{query}/{file_format}')   
+        response = requests.get(f'http://{ip_address}:5000/query/{query}/{file_format}')   
         if response.status_code == 200:
             body = response.json()
             for item in body:
@@ -29,7 +30,7 @@ while True:
             for item in body:
                 if quantity == 0:
                     break
-                download_response = requests.get(f'http://localhost:5000/download/{item[0]}/{item[1]}')
+                download_response = requests.get(f'http://{ip_address}:5000/download/{item[0]}/{item[1]}')
                 if download_response.status_code == 200:
                     download_name = download_response.headers.get('Content-Disposition').split('filename=')[-1]
                     with open(f'data/{download_name}', 'wb') as file:
@@ -44,7 +45,7 @@ while True:
         file_name = input('Por favor introduzca el archivo:\n')
         with open(f'data/{file_name}', 'rb') as file:
             file_content = file.read()
-            requests.post(f'http://localhost:5000/upload/{file_name}', files={f'{file_name}': file_content})
+            requests.post(f'http://{ip_address}:5000/upload/{file_name}', files={f'{file_name}': file_content})
         
     if input("Presione q para salir o cualquier otra tecla para volver a buscar\n").lower() == 'q':
         break
