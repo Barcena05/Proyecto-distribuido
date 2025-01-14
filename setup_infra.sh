@@ -49,7 +49,7 @@ docker network connect --ip 10.0.11.254 servers router
 
 echo "Container router connected to client and server networks."
 
-# check chord docker image existence 
+# check server docker image existence 
 
 docker image inspect server >/dev/null 2>&1
 if [ $? -eq 0 ]; then
@@ -58,3 +58,26 @@ else
     docker build -t server -f server/Dockerfile server/
     echo "Image server created."
 fi
+
+# check client docker image existence 
+
+docker image inspect client >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "Image client exists."
+else
+    docker build -t client -f client/Dockerfile client/
+    echo "Image client created."
+fi
+
+# check server container existence
+
+docker container inspect server >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    docker container stop server
+    docker container rm server
+    echo "Container server removed."    
+fi
+
+docker run --rm -d --privileged -p 5000:5000 --name server --cap-add NET_ADMIN --network servers server
+echo "Container server executed."
+

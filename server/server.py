@@ -7,7 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 app = Flask(__name__)
 
 @app.route('/preprocess')
-def preprocess():
+async def preprocess():
     hashes = find_duplicate_files("data")
     vectorizer = TfidfVectorizer(lowercase=True,strip_accents='unicode')
     indexs = {}
@@ -27,7 +27,7 @@ def preprocess():
     return 'Preprocess completed', 200
 
 @app.route('/query/<query>/<file_format>')
-def query_func(query:str, file_format:str):
+async def query_func(query:str, file_format:str):
     hashes = app.config['hashes']
     X = app.config['X']
     indexs = app.config['indexs']
@@ -55,19 +55,19 @@ def query_func(query:str, file_format:str):
 
 
 @app.route('/download/<filename>/<fileformat>')
-def download(filename, fileformat):  
+async def download(filename, fileformat):  
     with open(f'data/{filename}.{fileformat}', 'rb') as file:
         file_content = file.read()
         return send_file(
             BytesIO(file_content),
             mimetype='application/octet-stream',
-            download_name=filename,
+            download_name=f'{filename}.{fileformat}',
             as_attachment=True
         )
 
 
 @app.route('/upload/<filename>', methods=['POST'])
-def upload(filename):
+async def upload(filename):
     print(filename)
     if filename not in request.files:
         return 'No file part', 400
