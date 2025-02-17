@@ -1,56 +1,158 @@
-import requests
-async def main():
-    ip_address = input('Por favor introduzca la IP del servidor:\n')
-    await requests.get(f'http://{ip_address}:5000/preprocess')
+import hashlib
+import pickle
+import socket
+from datetime import datetime, timedelta
 
-    print("Bienvenido al buscador\n")
+M = 8
+PORT = 5000
 
-    while True:
-        print("Desea descargar archivos(0) o subir archivos(1)?")
-        entry = int(input())
+def hash_key(key):
+    return int(hashlib.sha1(key.encode()).hexdigest(), 16) % (2**M)
 
-        if entry == 0:
-            query = input('Por favor introduzca la consulta:\n')
-            format_entry_bool = input('Desea filtrar por formatos? (S/N)\n').lower()
-            format_entry_bool = True if format_entry_bool == 's' else False
-            file_format = 'Any'
-            if format_entry_bool:
-                file_format = input('Introduzca el formato (ej: txt, mp3, etc)\n').lower()
-            
-            response = await requests.get(f'http://{ip_address}:5000/query/{query}/{file_format}')   
-            if response.status_code == 200:
-                body = response.json()
-                for item in body:
-                    print(item)
+class ChordClient:
+    def __init__(self, bootstrap_node):
+        """
+        Initializes a ChordClient instance with a bootstrap node.
+
+        Args:
+            bootstrap_node (tuple): The IP address and port of the bootstrap node.
+
+        Returns:
+            None
+        """
+        self.bootstrap_node = bootstrap_node
+        self.local_files = {}
+        
+    def remote_call(self, node_addr, command, *args):
+        """
+        Makes a remote procedure call to a node in the Chord network.
+
+        Args:
+            node_addr (tuple): The IP address and port of the node to call.
+            command (str): The command to execute on the remote node.
+            *args: Variable number of arguments to pass to the remote command.
+
+        Returns:
+            The response from the remote node, or None if the call fails.
+        """
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(2)
+                s.connect(node_addr)
+                message = (command, args)
+                s.sendall(pickle.dumps(message))
+                response = pickle.loads(s.recv(1024))
+                return response
+        except:
+            return None
+    
+    def upload_file(self, file_name):
+        """
+        Uploads a file to the Chord network.
+
+        Args:
+            file_name (str): The path to the file to be uploaded.
+
+        Returns:
+            None
+        """
+        try:
+            with open(file_name, 'rb') as f:
+                content = f.read()
+                key = hash_key(file_name)
+                target_node = self.remote_call(self.bootstrap_node, 'find_successor', key)
                 
-                quantity = int(input('Cuantos archivos desea recuperar?\n'))
-                if not type(quantity) is int or quantity<0:
-                    quantity = 1
-                    
-                for item in body:
-                    if quantity == 0:
-                        break
-                    download_response = await requests.get(f'http://{ip_address}:5000/download/{item[0]}/{item[1]}')
-                    if download_response.status_code == 200:
-                        download_name = download_response.headers.get('Content-Disposition').split('filename=')[-1]
-                        with open(f'data/{download_name}', 'wb') as file:
-                            file.write(download_response.content)
-                        print(f'Se descargó {download_name}')
-                        quantity -= 1
-                    else:
-                        print("Error al descargar el archivo")
-            else:   
-                print('No se encontró el archivo') 
-        elif entry == 1:
-            file_name = input('Por favor introduzca el archivo:\n')
-            with open(f'data/{file_name}', 'rb') as file:
-                file_content = file.read()
-                await requests.post(f'http://{ip_address}:5000/upload/{file_name}', files={f'{file_name}': file_content})
+                metadata = {
+                    'name': file_name.split('/')[-1],
+                    'format': file_name.split('.')[-1],
+                    'content': content,
+                    'timestamp': datetime.now()
+                }
+                
+                if self.remote_call(target_node, 'store_data', key, metadata):
+                    print(f"Archivo {file_name} subido correctamente (clave: {key})")
+                    self.local_files[key] = metadata
+                else:
+                    print("Error al subir el archivo")
+        except Exception as e:
+            print(f"Error: {e}")
+    
+    def search_files(self, query, file_format='Any'):
+        """
+        Searches for files in the Chord network based on a query and optional file format.
+
+        Args:
+            query (str): The search query to use when searching for files.
+            file_format (str, optional): The file format to filter results by. Defaults to 'Any'.
+
+        Returns:
+            list: A list of tuples containing the names of matching files and their corresponding nodes.
+        """
+        results = []
+        query_hash = hash_key(query)
+        target_node = self.remote_call(self.bootstrap_node, 'find_successor', query_hash)
+        metadata = self.remote_call(target_node, 'get_data', query_hash)
+        
+        if metadata and (file_format == 'Any' or metadata['format'].lower() == file_format.lower()):
+            results.append((metadata['name'], target_node))
+        
+        print("\nResultados de búsqueda:")
+        for name, node in results:
+            print(f"Nombre: {name}, Nodo: {node[1]}")
+        return results
+    
+    def download_file(self, file_name, node_addr):
+        """
+        Downloads a file from the Chord network.
+
+        Args:
+            file_name (str): The name of the file to be downloaded.
+            node_addr: The address of the node containing the file.
+
+        Returns:
+            None
+        """
+        key = hash_key(file_name)
+        metadata = self.remote_call(node_addr, 'get_data', key)
+        if metadata:
+            with open(f"downloads/{metadata['name']}", 'wb') as f:
+                f.write(metadata['content'])
+            print(f"Archivo {metadata['name']} descargado correctamente")
+        else:
+            print("Archivo no encontrado")
+
+def main():
+    bootstrap_node = ("127.0.0.1", 5000)
+    client = ChordClient(bootstrap_node)
+    
+    while True:
+        print("\n1. Buscar archivos")
+        print("2. Subir archivo")
+        print("3. Descargar archivo")
+        print("4. Salir")
+        opcion = input("Seleccione una opción: ")
+        
+        if opcion == '1':
+            query = input("Término de búsqueda: ")
+            formato = input("Formato (deje vacío para cualquier): ")
+            results = client.search_files(query, formato if formato else 'Any')
             
-        if input("Presione q para salir o cualquier otra tecla para volver a buscar\n").lower() == 'q':
+            if results:
+                file_name = input("Nombre exacto para descargar: ")
+                client.download_file(file_name, results[0][1])
+        
+        elif opcion == '2':
+            file_path = input("Ruta del archivo a subir: ")
+            client.upload_file(file_path)
+        
+        elif opcion == '3':
+            file_name = input("Nombre exacto del archivo: ")
+            key = hash_key(file_name)
+            target_node = client.remote_call(bootstrap_node, 'find_successor', key)
+            client.download_file(file_name, target_node)
+        
+        elif opcion == '4':
             break
 
-
-if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+if __name__ == "__main__":
+    main()
