@@ -239,6 +239,13 @@ class NodoChord:
                     })
                     with open(self.file_names_file, 'w') as f:
                         json.dump(file_names, f)
+                    if r == 0: 
+                        self.replics.append({
+                            'name': file_name,
+                            'type': file_type,
+                            'content': file_content,
+                            'nodes': [self.ip]
+                        })
                     return "Nombre agregado al archivo existente"
                 return "El archivo ya existe con ese nombre"
             else:
