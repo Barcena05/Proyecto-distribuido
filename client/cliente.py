@@ -111,9 +111,9 @@ class FileShareApp:
             file_name = os.path.basename(file_path)
             file_type = file_name.split(".")[-1]
             file_size = os.path.getsize(file_path)
-            with open(file_path,'rb') as file:
-                file_hash = getShaRepr(str(file.read()))
-            client_socket.send(f"10,{file_name},{file_type},{file_size},{file_hash}".encode())
+            # with open(file_path,'rb') as file:
+            #     file_hash = getShaRepr(str(file.read()))
+            client_socket.send(f"10,{file_name},{file_type},{file_size}".encode())
             if client_socket.recv(1024).decode() == 'READY':
                 with open(file_path, "rb") as f:
                     while chunk := f.read(1024000):

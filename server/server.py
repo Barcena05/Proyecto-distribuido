@@ -266,7 +266,7 @@ class NodoChord:
                     self.replics.append({
                         'name': file_name,
                         'type': file_type,
-                        'content': content_b64,
+                        'content': file_content,
                         'nodes': [self.ip]
                     })
                 return "Archivo subido correctamente"
@@ -617,7 +617,7 @@ class NodoChord:
             print(self.data)
             conn.sendall(self.data)
         elif option == SUBIR_ARCHIVO:
-            file_name, file_type, file_size, file_hash_rcv = data[1], data[2], int(data[3]), data[4]
+            file_name, file_type, file_size = data[1], data[2], int(data[3])
             print("LISTO PARA RECIBIR")
             conn.send('READY'.encode())
             file_content = b""
@@ -669,6 +669,7 @@ class NodoChord:
 
         elif option == ALMACENAR_REPLICA:
             file_name,file_type,file_size= data[1],data[2],int(data[3])
+            print(f'Replic size: {file_size}')
             nodes ="["
             for i in range(4,len(data)):
                 nodes+= "\"" + data[i] + "\""
