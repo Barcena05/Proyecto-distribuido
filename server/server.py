@@ -6,6 +6,7 @@ import os
 from base64 import b64encode, b64decode
 import struct 
 import json
+import datetime
 
 # Constantes
 PUERTO_DE_BROADCAST = 50000 
@@ -150,6 +151,7 @@ class NodoChord:
         
         self.files_file = os.path.join(self.data_dir, "files.json")
         self.file_names_file = os.path.join(self.data_dir, "file_names.json")
+        self.detail_logs = os.path.join(self.data_dir, "detail_logs.txt")
         
         
         if not os.path.exists(self.files_file):
@@ -160,7 +162,9 @@ class NodoChord:
             with open(self.file_names_file, 'w') as f:
                 json.dump([], f)
 
-        
+        if not os.path.exists(self.detail_logs):
+            with open(self.detail_logs, 'w') as f:
+                f.write("")
 
 
         threading.Thread(target=self.estabilizar_red, daemon=True).start()  
@@ -597,34 +601,52 @@ class NodoChord:
         if option == ENCONTRAR_SUCESOR:
             id = int(data[1])
             data_resp = self.encontrar_succ(id)
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} ENCONTRAR_SUCESOR: {data_resp}\n")
         elif option == ENCONTRAR_PREDECESOR:
             id = int(data[1])
             data_resp = self.encontrar_predec(id)
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} ENCONTRAR_PREDECESOR: {data_resp}\n")
         elif option == OBTENER_SUCESOR:
             data_resp = self.succ
-        elif option == OBTENER_PREDECESOR:
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} OBTENER_SUCESOR: {data_resp}\n")
+        elif option == OBTENER_PREDECESOR:            
             data_resp = self.pred
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} OBTENER_PREDECESOR: {data_resp}\n")
         elif option == NOTIFICAR:
             id = int(data[1])
             ip = data[2]
             self.notificar(Referencia(ip, self.port))
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} NOTIFICAR: {ip}\n")
         elif option == DEDO_MAS_CERCANO:
             id = int(data[1])
             data_resp = self.dedo_mas_cercano(id)
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} DEDO_MAS_CERCANO a: {id}, {data_resp}\n")
         elif option == NOTIFICAR1:
             id = int(data[1])
             ip = data[2]
             self.notificar1(Referencia(ip, self.port))
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} NOTIFICAR1: {ip}\n")
         elif option == IS_ALIVE:
             data_resp = 'verificar'
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} IS_ALIVE\n")
         elif option == ALMACENAR_LLAVE:
             print(data)
             key, value = data[1], data[2]
             self.almacenar_llave(key, value)
             print(self.data)
             conn.sendall(self.data)
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} ALMACENAR_LLAVE: llave: {key} valor:{value}\n")
         elif option == SUBIR_ARCHIVO:
-            file_name, file_type, file_size = data[1], data[2], int(data[3])
+            file_name, file_type, file_size, file_hash_rcv = data[1], data[2], int(data[3]), int(data[4])
             print("LISTO PARA RECIBIR")
             conn.send('READY'.encode())
             file_content = b""
@@ -636,9 +658,10 @@ class NodoChord:
                 file_content += chunk
                 remaining -= len(chunk)
             file_hash = getShaRepr(str(file_content))
-            # if file_hash != file_hash_rcv:
-            #     conn.send('ERROR, HASH NO COINCIDE'.encode())
-            #     return
+            print(file_hash, file_hash_rcv)
+            if file_hash != file_hash_rcv:
+                conn.send('ERROR, HASH NO COINCIDE'.encode())
+                return
             # Encontrar al nodo responsable de almacenar el archivo
             responsible_node = self.encontrar_succ(file_hash)
             if responsible_node.id == self.id:
@@ -657,6 +680,8 @@ class NodoChord:
             file_name,file_type= data[1],data[2]
             try:
                 print("BUSCAR ARCHIVO POR BROADCAST")
+                with open(self.detail_logs, 'a') as f:
+                    f.write(f"Time: {datetime.datetime.now()} BUSCAR_ARCHIVO: nombre: {file_name}, tipo: {file_type}\n")
                 results= self.busqueda_broadcast(file_name,file_type)
                 print("ENVIANDO RESPUESTA")
                 conn.sendall(str(results).encode())
@@ -673,6 +698,8 @@ class NodoChord:
             for i in range(0, len(response), 1024000):
                 chunk = response[i:i+1024000]
                 conn.send(chunk)
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} DESCARGAR_ARCHIVOR_SUCESOR: {file_name}\n")
 
         elif option == ALMACENAR_REPLICA:
             file_name,file_type,file_size= data[1],data[2],int(data[3])
@@ -694,6 +721,8 @@ class NodoChord:
                 file_content += chunk
                 remaining -= len(chunk)
             self.replics.append({'name':file_name,'type':file_type,'content':file_content,'nodes':nodes})
+            with open(self.detail_logs, 'a') as f:
+                f.write(f"Time: {datetime.datetime.now()} ALMACENAR_REPLICA: nombre: {file_name}, tipo: {file_type}, content: {file_content}, nodes: {nodes}\n")
 
         if option in [SUBIR_ARCHIVO,BUSCAR_ARCHIVO]:
             return

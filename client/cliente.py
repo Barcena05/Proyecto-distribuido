@@ -111,9 +111,10 @@ class FileShareApp:
             file_name = os.path.basename(file_path)
             file_type = file_name.split(".")[-1]
             file_size = os.path.getsize(file_path)
-            # with open(file_path,'rb') as file:
-            #     file_hash = getShaRepr(str(file.read()))
-            client_socket.send(f"10,{file_name},{file_type},{file_size}".encode())
+            with open(file_path,'rb') as file:
+                file_hash = getShaRepr(str(file.read()))
+                print(f'Sent hash:{file_hash}')
+            client_socket.send(f"10,{file_name},{file_type},{file_size},{file_hash}".encode())
             if client_socket.recv(1024).decode() == 'READY':
                 with open(file_path, "rb") as f:
                     while chunk := f.read(1024000):
@@ -237,7 +238,7 @@ class FileShareApp:
                     # Recibir información del archivo
                     size = int(client_socket.recv(1024).decode())
                     client_socket.send('ACK'.encode())
-                    received_hash = client_socket.recv(1024).decode()
+                    received_hash = int(client_socket.recv(1024).decode())
                     client_socket.send('ACK'.encode())
                     # Guardar archivo
                     with open(file_name, 'wb') as f:
@@ -247,10 +248,11 @@ class FileShareApp:
                             chunk = client_socket.recv(min(remaining, 1024000))
                             file_content += chunk
                             remaining -= len(chunk)
-                        # if received_hash != getShaRepr(str(file_content)):
-                        #     self.log("[ERROR] El archivo no coincide con el hash")
-                        #     client_socket.close()
-                        #     continue
+                        print(received_hash, getShaRepr(str(file_content)))
+                        if received_hash != getShaRepr(str(file_content)):
+                            self.log("[ERROR] El archivo no coincide con el hash")
+                            client_socket.close()
+                            continue
                         f.write(file_content)
                     self.log(f"[INFO] Archivo guardado como {file_name}")
                     client_socket.close()
