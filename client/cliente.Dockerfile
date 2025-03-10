@@ -8,6 +8,9 @@ WORKDIR /app
 # Copiar los archivos necesarios
 COPY client/cliente.py ./cliente.py
 COPY client/cliente.sh /usr/local/bin/cliente.sh
+COPY client/ca.crt /app
+COPY client/cliente.key /app
+COPY client/cliente.crt /app/
 
 # Asegúrate de que el script sea ejecutable
 RUN chmod +x /usr/local/bin/cliente.sh

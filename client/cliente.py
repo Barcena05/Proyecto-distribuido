@@ -5,10 +5,16 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext
 import hashlib
+import ssl
 
 GRUPO_MULTICAST = '224.0.0.1'
 PUERTO_MULTICAST = 10000
 PUERTO_TCP = 8001
+
+# Configuración del contexto SSL
+context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+context.load_verify_locations(cafile="ca.crt")  # Cargar certificado de la CA
+context.load_cert_chain(certfile="cliente.crt", keyfile="cliente.key")  # Certificado del cliente
 
 def getShaRepr(data: str):
     return int(hashlib.sha1(data.encode()).hexdigest(),16)
@@ -82,7 +88,7 @@ class FileShareApp:
             self.log(f"Iniciando subida de {file_path}")
             
             # Crear socket multicast
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_DGRAM),server_side=True)
             sock.settimeout(5)
             sock.bind(("", PUERTO_MULTICAST))
 
@@ -104,7 +110,7 @@ class FileShareApp:
                     break
 
             # Conectar al nodo
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),server_side=True)
             client_socket.connect((node_ip, PUERTO_TCP))
             
             # Enviar archivo
@@ -145,7 +151,7 @@ class FileShareApp:
             self.log(f"Buscando {name} con extension {file_type}")
             
             # Crear socket multicast
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_DGRAM),server_side=True)
             sock.settimeout(5)
             sock.bind(("", PUERTO_MULTICAST))
 
@@ -167,7 +173,7 @@ class FileShareApp:
                     break
 
             # Conectar al nodo
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),server_side=True)
             client_socket.connect((node_ip, PUERTO_TCP))
             
             # Buscar archivos
@@ -229,7 +235,7 @@ class FileShareApp:
             # Intentar descargar desde cada nodo disponible
             for node_ip in file_info['nodes']:
                 try:
-                    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    client_socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),server_side=True)
                     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                     client_socket.connect((node_ip, PUERTO_TCP))
                     self.log(f"Conectado al nodo {node_ip}")
