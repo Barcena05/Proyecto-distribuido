@@ -88,7 +88,7 @@ class FileShareApp:
             self.log(f"Iniciando subida de {file_path}")
             
             # Crear socket multicast
-            sock = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_DGRAM),server_side=True)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(5)
             sock.bind(("", PUERTO_MULTICAST))
 
@@ -110,7 +110,7 @@ class FileShareApp:
                     break
 
             # Conectar al nodo
-            client_socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),server_side=True)
+            client_socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM), server_hostname='DFS_SERVER')
             client_socket.connect((node_ip, PUERTO_TCP))
             
             # Enviar archivo
@@ -151,7 +151,7 @@ class FileShareApp:
             self.log(f"Buscando {name} con extension {file_type}")
             
             # Crear socket multicast
-            sock = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_DGRAM),server_side=True)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(5)
             sock.bind(("", PUERTO_MULTICAST))
 
@@ -173,7 +173,7 @@ class FileShareApp:
                     break
 
             # Conectar al nodo
-            client_socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),server_side=True)
+            client_socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM), server_hostname='DFS_SERVER')
             client_socket.connect((node_ip, PUERTO_TCP))
             
             # Buscar archivos
@@ -235,7 +235,7 @@ class FileShareApp:
             # Intentar descargar desde cada nodo disponible
             for node_ip in file_info['nodes']:
                 try:
-                    client_socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),server_side=True)
+                    client_socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),server_hostname='DFS_SERVER')
                     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                     client_socket.connect((node_ip, PUERTO_TCP))
                     self.log(f"Conectado al nodo {node_ip}")

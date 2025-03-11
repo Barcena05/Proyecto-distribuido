@@ -37,6 +37,10 @@ context.load_cert_chain('servidor.crt', 'servidor.key')
 context.verify_mode = ssl.CERT_REQUIRED
 context.load_verify_locations(cafile='ca.crt')
 
+context2 = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+context2.load_verify_locations(cafile="ca.crt")  
+context2.load_cert_chain(certfile="servidor.crt", keyfile="servidor.key")  
+
 def calcular_hash(file_content):
     return hashlib.sha256(file_content).hexdigest()
 
@@ -51,7 +55,7 @@ class Referencia:
 
     def _enviar_datos(self, op: int, data: str = None) -> bytes:
         try:
-            with context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),server_side=True) as s:
+            with context2.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM), server_hostname='DFS_SERVER') as s:
                 s.connect((self.ip, self.port))
                 s.sendall(f'{op},{data}'.encode('utf-8'))
                 return s.recv(1024)
@@ -96,7 +100,7 @@ class Referencia:
 
     def almacenar_en_replicas(self,obj):
         try:
-            s=context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM), server_side=True)
+            s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.connect((self.ip, self.port))
             s.send(f"{13},{obj['name']},{obj['type']},{len(obj['content'])},{','.join(obj['nodes'])}".encode())
@@ -114,7 +118,7 @@ class Referencia:
     
     def almacenar_archivo(self, file_name, file_type, file_content, file_size):
         try:
-            s=context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),server_side=True)
+            s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.connect((self.ip, self.port))
             s.send(f"{10},{file_name},{file_type},{file_size}".encode())
@@ -177,7 +181,7 @@ class NodoChord:
         threading.Thread(target=self.corregir_finger_table, daemon=True).start()  
 
         
-        sock = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_DGRAM),server_side=True)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
         sock.bind(('', PUERTO_DE_BROADCAST))
 
@@ -193,7 +197,7 @@ class NodoChord:
 
 
         
-        sock_m = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_DGRAM),server_side=True)
+        sock_m = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock_m.bind(('', PUERTO_DE_MULTICAST))
 
         
@@ -292,7 +296,7 @@ class NodoChord:
         """Realiza una búsqueda por broadcast en la red CHORD."""
         results = []
         print("CONFIGURANDO SOCKET PARA BUSQUEDA BROADCAST")
-        broadcast_socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_DGRAM),server_side=True)
+        broadcast_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         broadcast_socket.settimeout(3)  # Tiempo de espera para respuestas
 
@@ -530,7 +534,7 @@ class NodoChord:
             print(f"ERROR EN EL hilo de multicast: {e}")
     
     def descubrir_servidor(self):
-        sock = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_DGRAM),server_side=True)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1) #Permite broadcast
 
         sock.settimeout(5)  # Tiempo máximo para esperar una respuesta
@@ -589,7 +593,7 @@ class NodoChord:
             node.almacenar_llave(key, value)
 
     def iniciar_servidor(self):
-        with context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),server_side=True) as s:
+        with context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM), server_hostname='DFS_SERVER') as s:
             s.setblocking(True)
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind((self.ip, self.port))
